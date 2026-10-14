@@ -49,6 +49,21 @@ const HeaderClientPage = () => {
     const [resetEmail, setResetEmail] = useState("");
     const [rememberMe, setRememberMe] = useState(false);
 
+    // FORM HATA STATE'LERİ
+    const [loginErrors, setLoginErrors] = useState({});
+    const [signupErrors, setSignupErrors] = useState({});
+    const [forgotErrors, setForgotErrors] = useState({});
+
+    // Toaster State
+    const [toast, setToast] = useState({ show: false, message: '', type: 'info' });
+
+    const showToast = (message, type = 'info') => {
+        setToast({ show: true, message, type });
+        setTimeout(() => {
+            setToast({ show: false, message: '', type: 'info' });
+        }, 5000);
+    };
+
     // Favorileri Güncelleyen Fonksiyon
     const updateFavs = () => {
         const isLoggedIn = typeof window !== "undefined" && (sessionStorage.getItem("user") || localStorage.getItem("user"));
@@ -85,10 +100,14 @@ const HeaderClientPage = () => {
             }
         }
 
-        const handleCustomFavEvent = () => {
+        const handleCustomFavEvent = (e) => {
             updateFavs();
             setIsFavBumped(true);
             setTimeout(() => setIsFavBumped(false), 300);
+
+            if (e?.detail?.message) {
+                showToast(e.detail.message, e.detail.type || 'info');
+            }
         };
 
         const handleCustomCartEvent = () => {
@@ -124,7 +143,9 @@ const HeaderClientPage = () => {
         localStorage.setItem("favorites", JSON.stringify(updated));
 
         setTimeout(() => {
-            window.dispatchEvent(new Event("favoritesUpdated"));
+            window.dispatchEvent(new CustomEvent("favoritesUpdated", { 
+                detail: { message: "Product removed from favorites.", type: "error" } 
+            }));
         }, 0);
     };
 
@@ -153,6 +174,9 @@ const HeaderClientPage = () => {
         setIsResetSent(false);
         setShowLoginPassword(false);
         setShowSignupPassword(false);
+        setLoginErrors({});
+        setSignupErrors({});
+        setForgotErrors({});
     };
 
     const openLogin = (e) => {
@@ -172,6 +196,7 @@ const HeaderClientPage = () => {
             setIsSignupVisible(false);
             setIsForgotPasswordVisible(false);
             setIsResetSent(false);
+            setLoginErrors({});
         }
     };
 
@@ -181,6 +206,7 @@ const HeaderClientPage = () => {
         setIsLoginVisible(false);
         setIsForgotPasswordVisible(false);
         setIsResetSent(false);
+        setSignupErrors({});
     };
 
     const openForgotPassword = (e) => {
@@ -189,6 +215,7 @@ const HeaderClientPage = () => {
         setIsLoginVisible(false);
         setIsSignupVisible(false);
         setIsResetSent(false);
+        setForgotErrors({});
     };
 
     const closeAll = () => {
@@ -201,72 +228,107 @@ const HeaderClientPage = () => {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        const isValid = isimSoy.trim() !== "" && sifre.trim() !== "";
+        const errors = {};
 
-        if (isValid) {
-            const userData = {
-                name: isimSoy,
-                email: `${isimSoy.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
-            };
-
-            sessionStorage.setItem("user", JSON.stringify(userData));
-
-            if (rememberMe) {
-                localStorage.setItem("user", JSON.stringify(userData));
-                localStorage.setItem("rememberedUser", isimSoy);
-            } else {
-                localStorage.removeItem("user");
-                localStorage.removeItem("rememberedUser");
-            }
-
-            closeAll();
-            resetFormState();
-            
-            setTimeout(() => {
-                window.dispatchEvent(new Event("favoritesUpdated"));
-            }, 0);
-        } else {
-            alert("Lütfen tüm kutuları doldurun!");
+        if (!isimSoy.trim()) {
+            errors.isimSoy = "Please enter your full name.";
         }
+        if (!sifre.trim()) {
+            errors.sifre = "Please enter your password.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setLoginErrors(errors);
+            return;
+        }
+
+        const userData = {
+            name: isimSoy,
+            email: `${isimSoy.toLowerCase().replace(/\s+/g, "")}@gmail.com`,
+        };
+
+        sessionStorage.setItem("user", JSON.stringify(userData));
+
+        if (rememberMe) {
+            localStorage.setItem("user", JSON.stringify(userData));
+            localStorage.setItem("rememberedUser", isimSoy);
+        } else {
+            localStorage.removeItem("user");
+            localStorage.removeItem("rememberedUser");
+        }
+
+        closeAll();
+        resetFormState();
+        
+        setTimeout(() => {
+            window.dispatchEvent(new Event("favoritesUpdated"));
+        }, 0);
     };
 
-    const handleForgotPassword = (e) => {
-        e.preventDefault();
-        if (resetEmail.trim() !== "") {
-            setIsResetSent(true);
-        } else {
-            alert("Lütfen e-posta adresinizi girin!");
-        }
-    };
+const handleForgotPassword = (e) => {
+    e.preventDefault();
+    const errors = {};
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!resetEmail.trim()) {
+        errors.resetEmail = "Please enter your email address.";
+    } else if (!emailRegex.test(resetEmail)) {
+        errors.resetEmail = "Please enter a valid email address.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+        setForgotErrors(errors);
+        return;
+    }
+
+    setIsResetSent(true);
+};
 
     const handleGuestContinue = (e) => {
         e.preventDefault();
-        sessionStorage.setItem("user", JSON.stringify({ name: "Misafir Kullanıcı", isGuest: true }));
+        sessionStorage.setItem("user", JSON.stringify({ name: "Guest User", isGuest: true }));
         closeAll();
         resetFormState();
     };
 
-    const handleSignup = (e) => {
-        e.preventDefault();
-        const isValid = isim.trim() !== "" && soyisim.trim() !== "" && mail.trim() !== "" && sifre.trim() !== "";
+const handleSignup = (e) => {
+    e.preventDefault();
+    const errors = {};
 
-        if (isValid) {
-            const userData = {
-                name: `${isim} ${soyisim}`,
-                email: mail,
-            };
+    // E-posta doğrulama için Regex (Örn: isim@domain.com)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-            sessionStorage.setItem("user", JSON.stringify(userData));
+    if (!isim.trim()) errors.isim = "Please enter your first name.";
+    if (!soyisim.trim()) errors.soyisim = "Please enter your last name.";
+    
+    // E-posta Boşluk & Format Kontrolü
+    if (!mail.trim()) {
+        errors.mail = "Please enter your email address.";
+    } else if (!emailRegex.test(mail)) {
+        errors.mail = "Please enter a valid email address (e.g. name@gmail.com).";
+    }
 
-            closeAll();
-            resetFormState();
-            setTimeout(() => {
-                window.dispatchEvent(new Event("favoritesUpdated"));
-            }, 0);
-        } else {
-            alert("Lütfen tüm kutuları doldurun!");
-        }
+    if (!sifre.trim()) errors.sifre = "Please enter your password.";
+
+    if (Object.keys(errors).length > 0) {
+        setSignupErrors(errors);
+        return;
+         
+    }
+
+    const userData = {
+        name: `${isim} ${soyisim}`,
+        email: mail,
     };
+
+    sessionStorage.setItem("user", JSON.stringify(userData));
+
+    closeAll();
+    resetFormState();
+    setTimeout(() => {
+        window.dispatchEvent(new Event("favoritesUpdated"));
+    }, 0);
+};
 
     const formatSrc = (src) => (src && !src.startsWith('/') ? `/${src}` : src);
 
@@ -280,6 +342,14 @@ const HeaderClientPage = () => {
 
     return (
         <>
+            {/* GLOBAL TOASTER BİLDİRİMİ */}
+            {toast.show && (
+                <div className={`toast-notification ${toast.type}`}>
+                    <i className={toast.type === 'success' ? "fa-solid fa-heart" : "fa-solid fa-heart-crack"}></i>
+                    <span>{toast.message}</span>
+                </div>
+            )}
+
             <header>
                 <input type="checkbox" id="menu-toggle" className="menu-toggle-checkbox" />
                 <div className="logo-container">
@@ -292,8 +362,8 @@ const HeaderClientPage = () => {
                 </div>
 
                 <div className="nav-links">
-                    <Link className={activeClass("/")} href={"/"} suppressHydrationWarning>Home</Link>
-                    <Link className={activeClass("/urunler")} href={"/urunler"} suppressHydrationWarning>Shop</Link>
+                    <Link className={activeClass("/")} href={"/"} suppressHydrationWarning>HOME</Link>
+                    <Link className={activeClass("/urunler")} href={"/urunler"} suppressHydrationWarning>SHOP</Link>
 
                     {/* MEGA MENÜ & KATEGORİ LİNKLERİ */}
                     <div className="dropdown">
@@ -302,33 +372,33 @@ const HeaderClientPage = () => {
                             <div className="menu-column">
                                 <h4>NEW IN</h4>
                                 <Link href={"/urunler"}>Latest</Link>
-                                <Link href={"/urunler"}>Trending</Link>
+                                <Link href={"/urunler"}>Featured</Link>
                                 <Link href={"/urunler"}>Best Sellers</Link>
                             </div>
                             <div className="menu-column">
                                 <h4>CLOTHING</h4>
-                                <Link href={"/urunler?category=Dresses"}>Dresses</Link>
+                                <Link href={"/urunler?category=Elbiseler"}>Dresses</Link>
                                 <Link href={"/urunler?category=Tops"}>Tops</Link>
-                                <Link href={"/urunler?category=Pants"}>Jeans</Link>
-                                <Link href={"/urunler?category=Jackets"}>Jackets</Link>
+                                <Link href={"/urunler?category=Pantolonlar"}>Trousers</Link>
+                                <Link href={"/urunler?category=Ceketler"}>Jackets</Link>
                             </div>
                             <div className="menu-column">
                                 <h4>SHOES</h4>
-                                <Link href={"/urunler?category=Shoes"}>Sneakers</Link>
-                                <Link href={"/urunler?category=Shoes"}>Boots</Link>
-                                <Link href={"/urunler?category=Shoes"}>Heels</Link>
+                                <Link href={"/urunler?category=Aksesuarlar"}>Sneakers</Link>
+                                <Link href={"/urunler?category=Aksesuarlar"}>Boots</Link>
+                                <Link href={"/urunler?category=Aksesuarlar"}>Heels</Link>
                             </div>
                             <div className="menu-column">
                                 <h4>ACCESSORIES</h4>
-                                <Link href={"/urunler?category=Bags"}>Bags</Link>
-                                <Link href={"/urunler?category=Jewelry"}>Jewelry</Link>
-                                <Link href={"/urunler?category=Belts"}>Belts</Link>
+                                <Link href={"/urunler?category=Çantalar"}>Bags</Link>
+                                <Link href={"/urunler?category=Mücevherat"}>Jewelry</Link>
+                                <Link href={"/urunler?category=Aksesuarlar"}>Belts</Link>
                             </div>
                         </div>
                     </div>
 
-                    <Link className={activeClass("/about")} href={"/about"} suppressHydrationWarning>About Us</Link>
-                    <Link className={activeClass("/contact")} href={"/contact"} suppressHydrationWarning>Contact</Link>
+                    <Link className={activeClass("/about")} href={"/about"} suppressHydrationWarning>ABOUT US</Link>
+                    <Link className={activeClass("/contact")} href={"/contact"} suppressHydrationWarning>CONTACT</Link>
                 </div>
 
                 <div className="nav-icons-container">
@@ -340,7 +410,7 @@ const HeaderClientPage = () => {
                                     <input 
                                         type="text"
                                         className="header-search-input"
-                                        placeholder="Type to search..."
+                                        placeholder="Search..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         autoFocus
@@ -360,7 +430,7 @@ const HeaderClientPage = () => {
                                 {searchQuery.trim() !== "" && (
                                     <div className="header-search-results">
                                         {searchResults.length === 0 ? (
-                                            <div className="header-search-empty">Sonuç bulunamadı.</div>
+                                            <div className="header-search-empty">No results found.</div>
                                         ) : (
                                             searchResults.map((item) => (
                                                 <Link 
@@ -388,7 +458,7 @@ const HeaderClientPage = () => {
                         <a 
                             href="#" 
                             className="nav-icon-link" 
-                            title="Ara"
+                            title="Search"
                             onClick={(e) => {
                                 e.preventDefault();
                                 setIsSearchOpen(!isSearchOpen);
@@ -407,7 +477,7 @@ const HeaderClientPage = () => {
                         <Link 
                             href="/favoriler" 
                             className={`nav-icon-link fav-header-badge ${mounted && pathname === "/favoriler" ? "active" : ""} ${isFavBumped ? "bump" : ""}`} 
-                            title="Favorilerim"
+                            title="My Favorites"
                         >
                             <i className={mounted && pathname === "/favoriler" ? "fa-solid fa-heart" : "fa-regular fa-heart"} />
                             {favProducts.length > 0 ? <span className="fav-badge">{favProducts.length}</span> : null}
@@ -416,11 +486,11 @@ const HeaderClientPage = () => {
                         {isFavOpen ? (
                             <div className="fav-dropdown-menu">
                                 <div className="fav-dropdown-header">
-                                    <span>FAVORİLERİM ({favProducts.length})</span>
+                                    <span>MY FAVORITES ({favProducts.length})</span>
                                 </div>
                                 <div className="fav-dropdown-body">
                                     {favProducts.length === 0 ? (
-                                        <p className="fav-empty-text">Henüz favori ürününüz yok.</p>
+                                        <p className="fav-empty-text">You have no favorites yet.</p>
                                     ) : (
                                         favProducts.map((item) => (
                                             <div key={item.id} className="fav-item">
@@ -432,7 +502,7 @@ const HeaderClientPage = () => {
                                                 <button 
                                                     onClick={() => removeFav(item.id)} 
                                                     className="fav-remove-btn"
-                                                    title="Favorilerden Çıkar"
+                                                    title="Remove from Favorites"
                                                 >
                                                     ×
                                                 </button>
@@ -447,7 +517,7 @@ const HeaderClientPage = () => {
                                             router.push('/favoriler');
                                         }}
                                     >
-                                        Tüm Favorilerime Git
+                                        View All Favorites
                                     </button>
                                 </div>
                             </div>
@@ -463,7 +533,7 @@ const HeaderClientPage = () => {
                         <Link 
                             href="/odeme" 
                             className={`nav-icon-link fav-header-badge ${mounted && (pathname === "/odeme" || pathname === "/sepet") ? "active" : ""} ${isCartBumped ? "bump" : ""}`} 
-                            title="Sepetim / Ödeme"
+                            title="My Bag / Checkout"
                         >
                             <i className="fa-solid fa-shopping-bag" />
                             {cartItems.length > 0 ? <span className="fav-badge">{cartItems.length}</span> : null}
@@ -472,11 +542,11 @@ const HeaderClientPage = () => {
                         {isCartOpen ? (
                             <div className="fav-dropdown-menu">
                                 <div className="fav-dropdown-header">
-                                    <span>SEPETİM ({cartItems.length})</span>
+                                    <span>MY BAG ({cartItems.length})</span>
                                 </div>
                                 <div className="fav-dropdown-body">
                                     {cartItems.length === 0 ? (
-                                        <p className="fav-empty-text">Sepetinizde ürün bulunmuyor.</p>
+                                        <p className="fav-empty-text">Your bag is empty.</p>
                                     ) : (
                                         cartItems.map((item, index) => {
                                             const hasDiscount = item.eskiFiyat && item.eskiFiyat !== "null" && item.eskiFiyat !== "";
@@ -490,7 +560,7 @@ const HeaderClientPage = () => {
                                                             {[
                                                                 item.selectedSize,
                                                                 item.selectedColor,
-                                                                `Adet: ${item.quantity || 1}`
+                                                                `Qty: ${item.quantity || 1}`
                                                             ].filter(Boolean).join(' | ')}
                                                         </span>
 
@@ -508,7 +578,7 @@ const HeaderClientPage = () => {
                                                     <button 
                                                         onClick={() => removeCartItem(index)} 
                                                         className="fav-remove-btn"
-                                                        title="Sepetten Çıkar"
+                                                        title="Remove from Bag"
                                                     >
                                                         ×
                                                     </button>
@@ -525,7 +595,7 @@ const HeaderClientPage = () => {
                                                 router.push('/odeme');
                                             }}
                                         >
-                                            Satın Al
+                                            Checkout
                                         </button>
                                     </div>
                                 )}
@@ -533,12 +603,12 @@ const HeaderClientPage = () => {
                         ) : null}
                     </div>
 
-                    <a href="#" onClick={openLogin} className={`nav-icon-link ${mounted && pathname === "/profil" ? "active" : ""}`} title="Profil" id="profileIcon">
+                    <a href="#" onClick={openLogin} className={`nav-icon-link ${mounted && pathname === "/profil" ? "active" : ""}`} title="Profile" id="profileIcon">
                         <i className="fa-regular fa-user" />
                     </a>
 
                     <div className="lang-dropdown">
-                        <a href="#" className="nav-icon-link" title="Dil Seçin">
+                        <a href="#" className="nav-icon-link" title="Select Language">
                             <i className="fa-solid fa-globe" />
                             <i className="fa-solid fa-chevron-down lang-arrow" />
                         </a>
@@ -547,9 +617,6 @@ const HeaderClientPage = () => {
                             <a href="#">EN</a>
                         </div>
                     </div>
-                    <a href="#" className="nav-icon-link" title="Ayarlar">
-                        <i className="fa-solid fa-gear" />
-                    </a>
                 </div>
             </header>
 
@@ -559,29 +626,37 @@ const HeaderClientPage = () => {
                     <div className="auth-box">
                         <span className="auth-close" onClick={closeAll}>×</span>
                         <h2 className="auth-title">WELCOME</h2>
-                        <form className="auth-form" onSubmit={handleLogin}>
+                        <form className="auth-form" onSubmit={handleLogin} noValidate>
                             <div className="auth-input-group">
                                 <input
                                     type="text"
-                                    placeholder="Name"
-                                    required
-                                    onChange={(e) => setisimSoy(e.target.value)}
+                                    placeholder="Full Name"
+                                    className={loginErrors.isimSoy ? "input-error" : ""}
+                                    onChange={(e) => {
+                                        setisimSoy(e.target.value);
+                                        if (loginErrors.isimSoy) setLoginErrors(prev => ({ ...prev, isimSoy: null }));
+                                    }}
                                     value={isimSoy}
                                 />
+                                {loginErrors.isimSoy && <span className="error-message">{loginErrors.isimSoy}</span>}
                             </div>
 
                             <div className="auth-input-group auth-password-group">
                                 <input
                                     type={showLoginPassword ? "text" : "password"}
                                     placeholder="Password"
-                                    required
-                                    onChange={(e) => setsifre(e.target.value)}
+                                    className={loginErrors.sifre ? "input-error" : ""}
+                                    onChange={(e) => {
+                                        setsifre(e.target.value);
+                                        if (loginErrors.sifre) setLoginErrors(prev => ({ ...prev, sifre: null }));
+                                    }}
                                     value={sifre}
                                 />
                                 <i
                                     className={`fa-regular ${showLoginPassword ? "fa-eye-slash" : "fa-eye"} auth-password-eye`}
                                     onClick={() => setShowLoginPassword(!showLoginPassword)}
                                 />
+                                {loginErrors.sifre && <span className="error-message">{loginErrors.sifre}</span>}
                             </div>
 
                             <div className="auth-options-row">
@@ -600,7 +675,7 @@ const HeaderClientPage = () => {
                             </div>
 
                             <button type="submit" className="auth-submit-btn">
-                                Login
+                                Log In
                             </button>
                         </form>
 
@@ -628,15 +703,19 @@ const HeaderClientPage = () => {
                         <h2 className="auth-title">RESET PASSWORD</h2>
                         
                         {!isResetSent ? (
-                            <form className="auth-form" onSubmit={handleForgotPassword}>
+                            <form className="auth-form" onSubmit={handleForgotPassword} noValidate>
                                 <div className="auth-input-group">
                                     <input
                                         type="email"
-                                        placeholder="Enter your email"
-                                        required
-                                        onChange={(e) => setResetEmail(e.target.value)}
+                                        placeholder="Enter your email address"
+                                        className={forgotErrors.resetEmail ? "input-error" : ""}
+                                        onChange={(e) => {
+                                            setResetEmail(e.target.value);
+                                            if (forgotErrors.resetEmail) setForgotErrors({});
+                                        }}
                                         value={resetEmail}
                                     />
+                                    {forgotErrors.resetEmail && <span className="error-message">{forgotErrors.resetEmail}</span>}
                                 </div>
                                 <button type="submit" className="auth-submit-btn">
                                     Send Reset Link
@@ -644,7 +723,7 @@ const HeaderClientPage = () => {
                                 <div className="auth-switch-margin">
                                     Remember your password?{" "}
                                     <a href="#" onClick={openLogin}>
-                                        Login
+                                        Log In
                                     </a>
                                 </div>
                             </form>
@@ -660,7 +739,7 @@ const HeaderClientPage = () => {
                                     onClick={openLogin} 
                                     className="auth-submit-btn"
                                 >
-                                    Back to Login
+                                    Back to Log In
                                 </button>
                             </div>
                         )}
@@ -673,48 +752,64 @@ const HeaderClientPage = () => {
                 <div className="signup-container active" id="signup">
                     <div className="auth-box">
                         <span className="auth-close" onClick={closeAll}>×</span>
-                        <h2 className="auth-title">WELCOME BACK</h2>
-                        <form className="auth-form" onSubmit={handleSignup}>
+                        <h2 className="auth-title">SIGN UP</h2>
+                        <form className="auth-form" onSubmit={handleSignup} noValidate>
                             <div className="auth-input-group">
                                 <input
                                     type="text"
-                                    placeholder="Name"
-                                    required
-                                    onChange={(e) => setisim(e.target.value)}
+                                    placeholder="First Name"
+                                    className={signupErrors.isim ? "input-error" : ""}
+                                    onChange={(e) => {
+                                        setisim(e.target.value);
+                                        if (signupErrors.isim) setSignupErrors(prev => ({ ...prev, isim: null }));
+                                    }}
                                     value={isim}
                                 />
+                                {signupErrors.isim && <span className="error-message">{signupErrors.isim}</span>}
                             </div>
                             <div className="auth-input-group">
                                 <input
                                     type="text"
-                                    placeholder="Surname"
-                                    required
-                                    onChange={(e) => setSoyisim(e.target.value)}
+                                    placeholder="Last Name"
+                                    className={signupErrors.soyisim ? "input-error" : ""}
+                                    onChange={(e) => {
+                                        setSoyisim(e.target.value);
+                                        if (signupErrors.soyisim) setSignupErrors(prev => ({ ...prev, soyisim: null }));
+                                    }}
                                     value={soyisim}
                                 />
+                                {signupErrors.soyisim && <span className="error-message">{signupErrors.soyisim}</span>}
                             </div>
                             <div className="auth-input-group">
                                 <input
                                     type="email"
                                     placeholder="Email"
-                                    required
-                                    onChange={(e) => setmail(e.target.value)}
+                                    className={signupErrors.mail ? "input-error" : ""}
+                                    onChange={(e) => {
+                                        setmail(e.target.value);
+                                        if (signupErrors.mail) setSignupErrors(prev => ({ ...prev, mail: null }));
+                                    }}
                                     value={mail}
                                 />
+                                {signupErrors.mail && <span className="error-message">{signupErrors.mail}</span>}
                             </div>
 
                             <div className="auth-input-group auth-password-group">
                                 <input
                                     type={showSignupPassword ? "text" : "password"}
                                     placeholder="Password"
-                                    required
-                                    onChange={(e) => setsifre(e.target.value)}
+                                    className={signupErrors.sifre ? "input-error" : ""}
+                                    onChange={(e) => {
+                                        setsifre(e.target.value);
+                                        if (signupErrors.sifre) setSignupErrors(prev => ({ ...prev, sifre: null }));
+                                    }}
                                     value={sifre}
                                 />
                                 <i
                                     className={`fa-regular ${showSignupPassword ? "fa-eye-slash" : "fa-eye"} auth-password-eye`}
                                     onClick={() => setShowSignupPassword(!showSignupPassword)}
                                 />
+                                {signupErrors.sifre && <span className="error-message">{signupErrors.sifre}</span>}
                             </div>
 
                             <button type="submit" className="auth-submit-btn">
@@ -724,7 +819,7 @@ const HeaderClientPage = () => {
                         <div className="auth-switch">
                             Already have an account?{" "}
                             <a href="#" id="openLogin" onClick={openLogin}>
-                                Login
+                                Log In
                             </a>
                         </div>
                     </div>

@@ -267,15 +267,18 @@ header a:hover {
     color: #a00000;
     font-size: 24px;
     margin-bottom: 25px;
-}
-
+}/* Mevcut orijinal yapın korunsun */
 .auth-input-group {
     margin-bottom: 15px;
+    position: relative; /* Göz ikonunun doğru konumlanması için şart */
+    width: 100%;
+    display: flex;
+    flex-direction: column; /* Elemanların alt alta kalmasını garanti eder */
 }
 
 .auth-input-group input {
-    width: 100%;
-    padding: 12px 15px;
+    width: 100% !important; /* Kutunun daralmasını engeller */
+    padding: 12px 40px 12px 15px; /* Sağ taraftan göz ikonu için alan bırakıldı */
     border: 1px solid #eadece;
     border-radius: 8px;
     background-color: #ffffff;
@@ -283,14 +286,49 @@ header a:hover {
     font-size: 14px;
     outline: none;
     box-sizing: border-box;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+
+/* --- HATA DURUMU İÇİN EKLENECEK KISIM --- */
+
+/* Hata aldığında input kırmızı border ve hafif kırmızımsı arka plan alır */
+.auth-input-group input.input-error {
+    border-color: #d93025 !important;
+    background-color: #fff8f8 !important;
+}
+
+/* Hata yazısı kutunun hemen altında sola hizalı çıkar */
+.error-message {
+    display: block;
+    color: #d93025;
+    font-size: 12px;
+    margin-top: 5px;
+    text-align: left;
+    width: 100%;
+}
+
+/* Şifre göz ikonu konumlandırması */
+/* Kapsayıcı sınıfa ekleyin */
+.auth-input-group,
+.auth-password-group {
+    position: relative;
+    display: flex;
+    align-items: center; /* İçindeki tüm elemanları dikeyde tam ortalar */
+}
+
+/* İkonun CSS'ini güncelleyin */
+.auth-input-group .auth-password-eye,
+.auth-password-group .auth-password-eye {
+    position: absolute;
+    right: 15px;
+    cursor: pointer;
+    z-index: 2;
+    /* top değerini kaldırın */
 }
 
 .auth-input-group input:focus {
     border-color: #a00000;
 }
-
-
 .auth-submit-btn {
     width: 100%;
     padding: 12px;
@@ -374,6 +412,81 @@ header a:hover {
 }
 
 .auth-switch a:hover {
+    text-decoration: underline;
+}
+
+/* --- HİZALAMA VE DÜZELTME EKLENTİLERİ --- */
+.auth-password-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.auth-password-group input {
+    width: 100%;
+    padding-right: 40px;
+}
+
+.auth-password-eye {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #8c827a;
+    font-size: 16px;
+    z-index: 2;
+    transition: color 0.2s;
+}
+
+.auth-password-eye:hover {
+    color: #a00000;
+}
+
+.auth-options-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 15px 0 20px 0;
+    font-size: 13px;
+}
+
+.auth-remember-me {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.forgot-password-link {
+    color: #8c827a;
+    text-decoration: none;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.forgot-password-link:hover {
+    color: #a00000;
+    text-decoration: underline;
+}
+
+
+/* --- ŞİFRE SIFIRLAMA ALT YAZI BOŞLUĞU --- */
+.auth-switch-margin {
+    margin-top: 18px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: #666;
+}
+
+.auth-switch-margin a {
+    color: #a00000;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-switch-margin a:hover {
     text-decoration: underline;
 }
 
@@ -2069,6 +2182,7 @@ body .product {
     color: #fff;
 }
 
+/* Mevcut Stillerin */
 .reviews {
     max-width: 1400px;
     margin: 80px auto;
@@ -2111,6 +2225,112 @@ body .product {
     border: 2px solid #a00000;
 }
 
+/* --- YENİ EKLENEN FORM VE HATA STİLLERİ --- */
+
+/* Form Kutusu Yapısı */
+.comment-form-container {
+    max-width: 600px;
+    margin: 0 auto;
+    text-align: left;
+    padding: 10px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+/* Standart Input ve Textarea */
+.form-input, 
+.form-textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid #ccc;
+    border-radius: 12px;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.form-input:focus,
+.form-textarea:focus {
+    border-color: #888;
+}
+
+/* 2. GÖRSELDEKİ HATA DURUMU (Kırmızı Kenarlık ve Açık Kırmızı Arka Plan) */
+.form-input.input-error,
+.form-textarea.input-error {
+    border: 1px solid #e74c3c !important;
+    background-color: #fff8f8;
+}
+
+/* Kırmızı Hata Yazısı */
+.field-error-text {
+    color: #e74c3c;
+    font-size: 13px;
+    margin-top: 6px;
+    display: block;
+}
+
+/* Yıldız Puanlama Girişi */
+.rating-stars-input {
+    display: flex;
+    gap: 6px;
+    font-size: 26px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.rating-stars-input .star-filled {
+    color: #ffb400; /* Görseldeki Sarı Yıldızlar */
+}
+
+.rating-stars-input .star-empty {
+    color: #ddd;
+}
+
+/* Form Buton Hizalaması */
+.form-buttons {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 25px;
+}
+
+/* Gönder Butonu Ayarı (Mevcut .review-btn'i ezer/esnetir) */
+.form-buttons .submit-btn {
+    flex: 2;
+    text-align: center;
+}
+
+/* Vazgeç Butonu (Görsel 1'deki Oval Gri Buton) */
+.cancel-btn {
+    flex: 1;
+    padding: 14px 25px;
+    border: none;
+    background: #d4d4d4;
+    color: #333;
+    border-radius: 53px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    transition: .3s;
+    text-align: center;
+}
+
+.cancel-btn:hover {
+    background: #c0c0c0;
+}
 
 .similar-products {
     max-width: 1400px;
@@ -2285,6 +2505,53 @@ body .product {
 
 .modal-btn-cancel:hover {
     background: #e0e0e0;
+}
+
+/* Toast Bildirim */
+.toast-notification {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  color: #fff;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: slideIn 0.3s ease-in-out;
+}
+
+.toast-notification.error {
+  background-color: #d9534f;
+}
+
+.toast-notification.success {
+  background-color: #2e7d32;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes slideIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 @keyframes fadeIn {
@@ -2876,7 +3143,208 @@ body.profile {
 .profile-menu .logout:hover {
     background: #ffeaea;
 }
+/* Menü elemanlarının button olarak da a gibi davranmasını sağlar */
+.profile-menu .menu-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 12px 16px;
+  cursor: pointer;
+  text-decoration: none;
+  color: inherit;
+  font-size: 1rem;
+}
 
+/* Modal Arka Plan Maskesi */
+.profile-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Modal Kutusu */
+.profile-modal {
+  background: #fff;
+  padding: 24px;
+  border-radius: 12px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.profile-modal h3 {
+  margin-bottom: 12px;
+  font-size: 1.2rem;
+}
+
+.profile-modal p {
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.profile-modal button {
+  background: #a31d1d; /* Bordo / Tema rengin */
+  color: white;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+/* Açılan Sekme Kutusu Stil Yapısı */
+.tab-content {
+  background-color: #fafafa;
+  padding: 16px;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+  color: #444;
+}
+/* "Alışverişe Başla" linki ve form butonları için düzgün Hover kuralı */
+.tab-btn {
+  display: inline-block;
+  width: 100%;             /* Tam genişlik katmak istersen */
+  text-align: center;
+  background-color: #800000; /* Bordo tema rengin */
+  color: #ffffff !important;  /* Yazı rengi her zaman beyaz kalsın */
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover durumunda arka plan hafif kararsın, yazı bembeyaz kalsın */
+.tab-btn:hover {
+  background-color: #600000 !important; /* Bir ton daha koyu bordo */
+  color: #ffffff !important;            /* Yazının kaybolmaması için şart */
+  opacity: 0.95;
+}
+
+/* Ana Form Girdi Kutuları */
+.tab-form input,
+.tab-form textarea {
+  width: 100%;
+  padding: 14px 16px;
+  background-color: #fdfbfb;         /* Görseldeki açık krem zemin */
+  border: 1px solid #e8e2e2;         /* İnce yumuşak kenarlık */
+  border-radius: 12px;               /* Görseldeki yuvarlatılmış köşeler */
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Tıklandığında / Odaklandığında (Focus) */
+.tab-form input:focus,
+.tab-form textarea:focus {
+  border-color: #800000;             /* Sitenin bordo rengi */
+  background-color: #ffffff;
+}
+
+/* Hata Durumu (Görseldeki Kırmızı Çerçeveli Kutu) */
+.tab-form input.error-input,
+.tab-form textarea.error-input {
+  border: 1.5px solid #d93838 !important; /* Kırmızı çerçeve */
+  background-color: #fff9f9;
+}
+
+/* Hata Mesajı Metni (Görseldeki "Lütfen şifrenizi giriniz." gibi) */
+.error-msg {
+  color: #d93838;
+  font-size: 0.82rem;
+  margin-top: 4px;
+  margin-bottom: 6px;
+  display: block;
+  text-align: left;
+}
+/* Kart ve Adres Kutuları İçin Esnek Hizalama */
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Silme Butonu Stili */
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: #999;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.delete-btn:hover {
+  color: #d93838;            /* Üzerine gelince kırmızı olur */
+  background-color: #fff0f0;
+}
+
+.address-box, .card-box, .coupon-box {
+  border: 1px dashed #ccc;
+  padding: 10px;
+  border-radius: 6px;
+  background: #fff;
+  margin-bottom: 8px;
+}
+
+.settings-form input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tab-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.tab-form input, 
+.tab-form textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.tab-form textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.form-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.tab-btn.cancel {
+  background-color: #666;
+}
 /* ==========================================
    CHECKOUT (ÖDEME) SAYFASI STİLLERİ
    ========================================== */

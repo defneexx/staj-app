@@ -5,10 +5,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { urunlerData } from '@/app/data';
 
-// Ekranda gösterilecek standart butonlar (Kısaltma olarak)
 const ALL_SIZES = ['XS', 'S', 'M', 'L', 'XL'];
 
-// Ekranda gösterilen butonlar ile data.js içerisindeki tam metinlerin eşleşme haritası
 const SIZE_MAP = {
   'XS': 'Extra Small',
   'S': 'Small',
@@ -17,14 +15,33 @@ const SIZE_MAP = {
   'XL': 'Extra Large'
 };
 
+const formatSrc = (src) => (src && !src.startsWith('/') ? `/${src}` : src);
+
 export default function UrunDetay() {
   const params = useParams();
   const router = useRouter();
 
-  // String dönüşümü ile güvenli arama
   const urun = urunlerData.find((item) => String(item.id) === String(params?.id));
 
-  // --- FAVORİ STATE'İ VE TAKİBİ ---
+  const [zoomPos, setZoomPos] = useState({ x: 0, y: 0 });
+  const [showZoom, setShowZoom] = useState(false);
+
+  const handleMouseMove = (e) => {
+    const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+    setZoomPos({ x, y });
+  };
+
+  const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
+
+  const showToastNotification = (message, type = 'error') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: 'error' });
+    }, 5000);
+  };
+
   const [favorites, setFavorites] = useState([]);
 
   useEffect(() => {
@@ -45,13 +62,14 @@ export default function UrunDetay() {
     return () => window.removeEventListener("favoritesUpdated", updateFavsFromStorage);
   }, []);
 
-  // FAVORİ TIKLAMA FONKSİYONU
   const handleFavClick = (productId) => {
     const isLoggedIn = typeof window !== "undefined" && sessionStorage.getItem("user");
 
     if (isLoggedIn) {
+      let isAdded = false;
       setFavorites((prev) => {
         const isExist = prev.map(Number).includes(Number(productId));
+        isAdded = !isExist;
         const updated = isExist
           ? prev.filter((id) => Number(id) !== Number(productId))
           : [...prev, productId];
@@ -59,7 +77,12 @@ export default function UrunDetay() {
         sessionStorage.setItem("favorites", JSON.stringify(updated));
 
         setTimeout(() => {
-          window.dispatchEvent(new Event("favoritesUpdated"));
+          window.dispatchEvent(new CustomEvent("favoritesUpdated", {
+            detail: {
+              message: isAdded ? "Product added to favorites!" : "Product removed from favorites.",
+              type: isAdded ? "success" : "error"
+            }
+          }));
         }, 0);
 
         return updated;
@@ -71,7 +94,6 @@ export default function UrunDetay() {
     }
   };
 
-  // --- YORUM SİSTEMİ STATE'LERİ ---
   const [comments, setComments] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [showAllComments, setShowAllComments] = useState(false);
@@ -80,15 +102,41 @@ export default function UrunDetay() {
   const [rating, setRating] = useState(5);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  // Silme Onay Modalı için State
-  const [deletingCommentId, setDeletingCommentId] = useState(null);
+  // YORUM FORMU HATA STATE'İ
+  const [commentErrors, setCommentErrors] = useState({ name: '', text: '' });
 
-  // --- GELİNCE HABER VER STATE'LERİ ---
+  const [deletingCommentId, setDeletingCommentId] = useState(null);
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState('');
   const [notifySuccess, setNotifySuccess] = useState(false);
 
-  // Yorumları localStorage'dan yükleme ve oturum kontrolü
+  // GÖRSEL, RENK VE BEDEN STATE'LERİ
+  // (Hook'lar her render'da aynı sırada çağrılmalı, bu yüzden "ürün bulunamadı" return'ünden önce tanımlandı)
+  const defaultImages = urun
+    ? [
+        urun.resimAna,
+        urun.resimHover,
+        urun.resim3,
+        urun.resim4,
+        ...(urun.ekstraResimler || [])
+      ].filter(Boolean).map(formatSrc)
+    : [];
+
+  const getImagesForColor = (color) => {
+    if (urun?.renkResimleri && urun.renkResimleri[color]) {
+      return urun.renkResimleri[color].map(formatSrc);
+    }
+    return defaultImages;
+  };
+
+  const [selectedColor, setSelectedColor] = useState(urun?.renkler ? urun.renkler[0] : urun?.renk || '');
+  const initialImages = getImagesForColor(selectedColor);
+  const [activeImageList, setActiveImageList] = useState(initialImages);
+  const [currentMainImg, setCurrentMainImg] = useState(initialImages[0] || formatSrc(urun?.resimAna));
+
+  const [selectedSize, setSelectedSize] = useState('');
+  const [sizeError, setSizeError] = useState(false);
+
   useEffect(() => {
     if (typeof window === "undefined" || !urun) return;
 
@@ -97,7 +145,7 @@ export default function UrunDetay() {
       setIsLoggedIn(true);
       try {
         const parsedUser = JSON.parse(user);
-        const name = parsedUser.name || parsedUser.username || parsedUser.email || 'Kullanıcı';
+        const name = parsedUser.name || parsedUser.username || parsedUser.email || 'User';
         setUserName(name);
         if (parsedUser.email) setNotifyEmail(parsedUser.email);
       } catch {
@@ -110,19 +158,29 @@ export default function UrunDetay() {
     setComments(savedComments);
   }, [urun]);
 
-  // Yorum Gönderme Fonksiyonu
+  // YORUM GÖNDERME İŞLEMİ (Özel Validation ile)
   const handleCommentSubmit = (e) => {
     e.preventDefault();
 
-    if (!commentText.trim()) return;
-    if (!isLoggedIn && !userName.trim()) return;
+    let errors = {};
+    if (!isLoggedIn && !userName.trim()) {
+      errors.name = 'Please enter your full name.';
+    }
+    if (!commentText.trim()) {
+      errors.text = 'Please enter your review.';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setCommentErrors(errors);
+      return;
+    }
 
     const newComment = {
       id: Date.now(),
-      name: isLoggedIn ? userName : (userName.trim() || "Misafir Kullanıcı"),
+      name: isLoggedIn ? userName : (userName.trim() || "Guest User"),
       text: commentText.trim(),
       rating: rating,
-      date: new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })
+      date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' })
     };
 
     const updatedComments = [newComment, ...comments];
@@ -131,10 +189,10 @@ export default function UrunDetay() {
 
     setCommentText('');
     if (!isLoggedIn) setUserName('');
+    setCommentErrors({});
     setShowForm(false);
   };
 
-  // YORUMU SİL
   const confirmDeleteComment = () => {
     if (!deletingCommentId) return;
     const updatedComments = comments.filter((c) => c.id !== deletingCommentId);
@@ -146,49 +204,21 @@ export default function UrunDetay() {
   if (!urun) {
     return (
       <main style={{ padding: '50px', textAlign: 'center' }}>
-        <h2>Ürün Bulunamadı!</h2>
-        <p>Aradığınız ürün mevcut değil veya kaldırılmış olabilir.</p>
+        <h2>Product Not Found!</h2>
+        <p>The product you are looking for does not exist or may have been removed.</p>
         <Link href="/urunler" style={{ textDecoration: 'underline', marginTop: '10px', display: 'inline-block' }}>
-          Tüm Ürünlere Geri Dön
+          Back to All Products
         </Link>
       </main>
     );
   }
 
-  const formatSrc = (src) => (src && !src.startsWith('/') ? `/${src}` : src);
-
-  const defaultImages = [
-    urun.resimAna,
-    urun.resimHover,
-    urun.resim3,
-    urun.resim4,
-    ...(urun.ekstraResimler || [])
-  ].filter(Boolean).map(formatSrc);
-
-  const getImagesForColor = (color) => {
-    if (urun.renkResimleri && urun.renkResimleri[color]) {
-      return urun.renkResimleri[color].map(formatSrc);
-    }
-    return defaultImages;
-  };
-
-  // --- PRODUCT STATE'LERİ ---
-  const [selectedColor, setSelectedColor] = useState(urun.renkler ? urun.renkler[0] : urun.renk || '');
-  const initialImages = getImagesForColor(selectedColor);
-  const [activeImageList, setActiveImageList] = useState(initialImages);
-  const [currentMainImg, setCurrentMainImg] = useState(initialImages[0] || formatSrc(urun.resimAna));
-
-  const [selectedSize, setSelectedSize] = useState('');
-  const [sizeError, setSizeError] = useState(false);
-
-  // Data'da tutulan bedenler
   const rawProductSizes = Array.isArray(urun.beden)
     ? urun.beden
     : Array.isArray(urun.bedenler)
     ? urun.bedenler
     : [];
 
-  // Bir bedenin ürün stoğunda var olup olmadığını hem kısaltma hem tam kelime olarak kontrol eden yardımcı fonksiyon
   const checkSizeAvailable = (sizeLabel) => {
     const fullName = SIZE_MAP[sizeLabel] || sizeLabel;
     return rawProductSizes.includes(sizeLabel) || rawProductSizes.includes(fullName);
@@ -216,10 +246,12 @@ export default function UrunDetay() {
 
     if (!selectedSize) {
       setSizeError(true);
+      showToastNotification("Please select a size!", "error");
       return false;
     }
 
     if (!isSelectedSizeAvailable) {
+      showToastNotification("The selected size is out of stock.", "error");
       return false;
     }
 
@@ -252,6 +284,7 @@ export default function UrunDetay() {
       sessionStorage.setItem("cart", JSON.stringify(currentCart));
       window.dispatchEvent(new Event("cartUpdated"));
 
+      showToastNotification("Product added to your bag!", "success");
       return true;
     } catch (e) {
       console.error("Sepete eklenirken hata oluştu:", e);
@@ -269,18 +302,21 @@ export default function UrunDetay() {
 
     if (!selectedSize) {
       setSizeError(true);
+      showToastNotification("Please select a size!", "error");
       return;
     }
 
     if (!isSelectedSizeAvailable) {
+      showToastNotification("The selected size is out of stock.", "error");
       return;
     }
 
-    handleAddToCart();
-    router.push("/odeme");
+    const added = handleAddToCart();
+    if (added) {
+      router.push("/odeme");
+    }
   };
 
-  // Gelince Haber Ver Kayıt Mantığı
   const handleNotifySubmit = (e) => {
     e.preventDefault();
     if (!notifyEmail.trim()) return;
@@ -308,7 +344,14 @@ export default function UrunDetay() {
   const displayedComments = showAllComments ? comments : comments.slice(0, 4);
 
   return (
-    <main>
+    <main style={{ position: 'relative' }}>
+      {toast.show && (
+        <div className={`toast-notification ${toast.type}`}>
+          <i className={toast.type === 'error' ? "fa-solid fa-circle-exclamation" : "fa-solid fa-circle-check"}></i>
+          <span>{toast.message}</span>
+        </div>
+      )}
+
       <section className="productp">
         <div className="gallery">
           <div className="thumbnails">
@@ -324,13 +367,45 @@ export default function UrunDetay() {
             ))}
           </div>
 
-          <div className="main-image">
+          <div 
+            className="main-image"
+            onMouseEnter={() => setShowZoom(true)}
+            onMouseLeave={() => setShowZoom(false)}
+            onMouseMove={handleMouseMove}
+            style={{ 
+              position: 'relative', 
+              overflow: 'hidden', 
+              cursor: 'crosshair',
+              borderRadius: '15px',
+              width: 'fit-content'
+            }}
+          >
             <img id="mainImg" src={currentMainImg} alt={urun.isim} />
+
+            {showZoom && (
+              <div
+                className="zoom-overlay"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  pointerEvents: 'none',
+                  backgroundImage: `url(${currentMainImg})`,
+                  backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+                  backgroundSize: '250%',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundColor: '#fff',
+                  borderRadius: '15px'
+                }}
+              />
+            )}
           </div>
         </div>
 
         <div className="productp-info">
-          <span className="badge">New Arrival</span>
+
           <h1>{urun.isim}</h1>
           
           <div className="rating">
@@ -344,10 +419,9 @@ export default function UrunDetay() {
           </div>
 
           <p className="description">
-            {urun.aciklama || "Şık tasarımı ve kaliteli kumaşıyla günlük kullanım ve özel davetler için harika bir tercih."}
+            {urun.aciklama || "With its stylish design and quality fabric, a great choice for both everyday wear and special occasions."}
           </p>
 
-          {/* RENK SEÇİMİ */}
           {urun.renkler && urun.renkler.length > 0 && (
             <>
               <h4>Color</h4>
@@ -364,13 +438,11 @@ export default function UrunDetay() {
             </>
           )}
 
-          {/* BEDEN SEÇİMİ (STOK KONTROLÜ İLE) */}
           <h4 style={{ color: sizeError ? '#d9534f' : 'inherit', transition: 'color 0.2s' }}>
-            Size {sizeError && <span style={{ fontSize: '13px', fontWeight: 'normal', marginLeft: '8px' }}>(Lütfen beden seçiniz!)</span>}
+            Size {sizeError && <span style={{ fontSize: '13px', fontWeight: 'normal', marginLeft: '8px' }}>(Please select a size!)</span>}
           </h4>
           <div className="sizes">
             {ALL_SIZES.map((sizeLabel) => {
-              // Beden data içerisinde mevcut mu kontrol ediyoruz
               const isAvailable = checkSizeAvailable(sizeLabel);
 
               return (
@@ -378,7 +450,7 @@ export default function UrunDetay() {
                   key={sizeLabel}
                   className={`size-btn ${selectedSize === sizeLabel ? 'active' : ''} ${!isAvailable ? 'out-of-stock' : ''}`}
                   onClick={() => {
-                    setSelectedSize(sizeLabel);
+                    setSelectedSize((prevSize) => (prevSize === sizeLabel ? '' : sizeLabel));
                     setSizeError(false);
                   }}
                   style={{
@@ -396,10 +468,8 @@ export default function UrunDetay() {
             })}
           </div>
 
-          {/* DİNAMİK BUTON ALANI */}
           <div className="product-buttons">
             {selectedSize && !isSelectedSizeAvailable ? (
-              /* Stokta olmayan beden seçildiğinde "Gelince Haber Ver" Butonu */
               <button 
                 className="notify-btn" 
                 onClick={() => setShowNotifyModal(true)}
@@ -419,12 +489,11 @@ export default function UrunDetay() {
                 }}
               >
                 <i className="fa-regular fa-bell"></i>
-                Gelince Haber Ver ({selectedSize} Beden)
+                Notify Me When Available (Size {selectedSize})
               </button>
             ) : (
-              /* Stokta var ise veya beden seçilmediyse */
               <>
-                <button className="cart-btn" onClick={handleAddToCart}>Add to Cart</button>
+                <button className="cart-btn" onClick={handleAddToCart}>Add to Bag</button>
                 <button className="buy-btn" onClick={handleBuyNow}>Buy Now</button>
               </>
             )}
@@ -441,11 +510,11 @@ export default function UrunDetay() {
 
       {/* MÜŞTERİ YORUMLARI SEKSİYONU */}
       <section className="reviews">
-        <h2>Müşteri Yorumları</h2>
+        <h2>Customer Reviews</h2>
         <div className="reviews-box">
           
           {comments.length === 0 ? (
-            <p className="comments-empty-text">Henüz bu ürün için yorum yapılmamış.</p>
+            <p className="comments-empty-text">There are no reviews for this product yet.</p>
           ) : (
             <>
               <div className="comments-grid">
@@ -454,7 +523,7 @@ export default function UrunDetay() {
                     <button 
                       className="delete-comment-btn" 
                       onClick={() => setDeletingCommentId(item.id)}
-                      title="Yorumu Sil"
+                      title="Delete Review"
                     >
                       <i className="fa-solid fa-trash-can"></i>
                     </button>
@@ -479,69 +548,86 @@ export default function UrunDetay() {
                     className="toggle-comments-btn"
                     onClick={() => setShowAllComments(!showAllComments)}
                   >
-                    {showAllComments ? 'Daha Az Göster ▲' : `Tüm Yorumları Gör (${comments.length}) ▼`}
+                    {showAllComments ? 'Show Less ▲' : `See All Reviews (${comments.length}) ▼`}
                   </button>
                 </div>
               )}
             </>
           )}
 
-          {/* YORUM YAZ FORM */}
           <div className="review-action-wrapper">
             {!showForm ? (
               <button className="review-btn" onClick={() => setShowForm(true)}>
-                Yorum Yaz
+                Write a Review
               </button>
             ) : (
-              <form onSubmit={handleCommentSubmit} className="comment-form-container">
+              /* GÜNCELLENMİŞ YORUM FORMU */
+              <form onSubmit={handleCommentSubmit} noValidate className="comment-form-container">
                 
                 {!isLoggedIn && (
                   <div className="form-group">
-                    <label>İsminiz:</label>
+                    <label>Your Name:</label>
                     <input
                       type="text"
-                      required
-                      className="form-input"
+                      className={`form-input ${commentErrors.name ? 'input-error' : ''}`}
                       value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      placeholder="Adınızı giriniz"
+                      onChange={(e) => {
+                        setUserName(e.target.value);
+                        if (commentErrors.name) setCommentErrors(prev => ({ ...prev, name: '' }));
+                      }}
+                      placeholder="Full Name"
                     />
+                    {commentErrors.name && (
+                      <span className="field-error-text">{commentErrors.name}</span>
+                    )}
                   </div>
                 )}
 
                 <div className="form-group">
-                  <label>Puanınız:</label>
+                  <label>Your Rating:</label>
                   <div className="rating-stars-input">
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <span key={star} onClick={() => setRating(star)}>
-                        {star <= rating ? '★' : '☆'}
+                      <span 
+                        key={star} 
+                        onClick={() => setRating(star)}
+                        className={star <= rating ? 'star-filled' : 'star-empty'}
+                      >
+                        ★
                       </span>
                     ))}
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label>Yorumunuz:</label>
+                  <label>Your Review:</label>
                   <textarea
-                    required
                     rows={4}
-                    className="form-textarea"
+                    className={`form-textarea ${commentErrors.text ? 'input-error' : ''}`}
                     value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Ürün hakkındaki deneyimlerinizi paylaşın..."
+                    onChange={(e) => {
+                      setCommentText(e.target.value);
+                      if (commentErrors.text) setCommentErrors(prev => ({ ...prev, text: '' }));
+                    }}
+                    placeholder="Your message"
                   />
+                  {commentErrors.text && (
+                    <span className="field-error-text">{commentErrors.text}</span>
+                  )}
                 </div>
 
                 <div className="form-buttons">
                   <button type="submit" className="review-btn submit-btn">
-                    Gönder
+                    Submit
                   </button>
                   <button
                     type="button"
                     className="cancel-btn"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => {
+                      setShowForm(false);
+                      setCommentErrors({});
+                    }}
                   >
-                    Vazgeç
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -551,46 +637,44 @@ export default function UrunDetay() {
         </div>
       </section>
 
-      {/* SİLME ONAY MODALI */}
       {deletingCommentId !== null && (
         <div className="custom-modal-overlay">
           <div className="custom-modal-card">
-            <p>Bu yorumu silmek istediğinize emin misiniz?</p>
+            <p>Are you sure you want to delete this review?</p>
             <div className="custom-modal-buttons">
               <button className="modal-btn-confirm" onClick={confirmDeleteComment}>
-                Evet, Sil
+                Yes, Delete
               </button>
               <button className="modal-btn-cancel" onClick={() => setDeletingCommentId(null)}>
-                Vazgeç
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* GELİNCE HABER VER MODALI */}
       {showNotifyModal && (
         <div className="custom-modal-overlay">
           <div className="custom-modal-card" style={{ maxWidth: '400px', textAlign: 'left' }}>
-            <h3 style={{ marginBottom: '10px' }}>Stok Bildirimi</h3>
+            <h3 style={{ marginBottom: '10px' }}>Stock Notification</h3>
             <p style={{ fontSize: '14px', marginBottom: '15px', color: '#555' }}>
-              <strong>{urun.isim}</strong> ürününün <strong>{selectedSize}</strong> bedeni tekrar stoğa girdiğinde e-posta ile haberdar olmak ister misiniz?
+              Would you like to be notified by email when size <strong>{selectedSize}</strong> of <strong>{urun.isim}</strong> is back in stock?
             </p>
 
             {notifySuccess ? (
               <div style={{ padding: '10px', backgroundColor: '#d4edda', color: '#155724', borderRadius: '4px', textAlign: 'center' }}>
-                ✓ Talebiniz alındı! Stok yenilendiğinde haber vereceğiz.
+                ✓ Request received! We'll let you know when it's back in stock.
               </div>
             ) : (
               <form onSubmit={handleNotifySubmit}>
                 <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>E-Posta Adresiniz:</label>
+                  <label style={{ display: 'block', fontSize: '13px', marginBottom: '5px' }}>Your Email Address:</label>
                   <input
                     type="email"
                     required
                     value={notifyEmail}
                     onChange={(e) => setNotifyEmail(e.target.value)}
-                    placeholder="ornek@email.com"
+                    placeholder="example@email.com"
                     style={{
                       width: '100%',
                       padding: '10px',
@@ -603,10 +687,10 @@ export default function UrunDetay() {
 
                 <div className="custom-modal-buttons" style={{ justifyContent: 'flex-end' }}>
                   <button type="button" className="modal-btn-cancel" onClick={() => setShowNotifyModal(false)}>
-                    İptal
+                    Cancel
                   </button>
                   <button type="submit" className="modal-btn-confirm" style={{ backgroundColor: '#222' }}>
-                    Kaydet
+                    Save
                   </button>
                 </div>
               </form>
@@ -615,7 +699,6 @@ export default function UrunDetay() {
         </div>
       )}
 
-      {/* BENZER ÜRÜNLER */}
       <section className="similar-products">
         <h2>Similar Products</h2>
         <div className="product-grid">

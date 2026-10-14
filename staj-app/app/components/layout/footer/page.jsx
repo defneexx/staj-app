@@ -27,7 +27,7 @@ const FooterClientPage = () => {
                         <h3>HELP</h3>
                         <ul>
                             <li>
-                                <Link href="/contact">Contact Us</Link>
+                                <Link href="/contact">Contact</Link>
                             </li>
                             <li>
                                 <a href="#">Shipping</a>
@@ -36,7 +36,7 @@ const FooterClientPage = () => {
                                 <a href="#">Returns</a>
                             </li>
                             <li>
-                                <a href="#">FAQs</a>
+                                <a href="#">FAQ</a>
                             </li>
                         </ul>
                     </div>
@@ -44,7 +44,7 @@ const FooterClientPage = () => {
                         <h3>COMPANY</h3>
                         <ul>
                             <li>
-                                <Link href="/about">About</Link>
+                                <Link href="/about">About Us</Link>
                             </li>
                             <li>
                                 <a href="#">Careers</a>
@@ -59,9 +59,9 @@ const FooterClientPage = () => {
                     </div>
                     <div className="footer-column newsletter">
                         <h3>NEWSLETTER</h3>
-                        <p>Be the first to know about new collections and exclusive offers.</p>
+                        <p>Be the first to hear about new arrivals and exclusive offers.</p>
                         <div className="newsletter-box">
-                            <input type="email" placeholder="Enter your email" />
+                            <input type="email" placeholder="Enter your email address" />
                             <button>Subscribe</button>
                         </div>
                     </div>

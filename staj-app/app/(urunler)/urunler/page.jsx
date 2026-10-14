@@ -5,6 +5,47 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { urunlerData } from "@/app/data";
 
+// Filtre değerleri veriyle eşleştiği için Türkçe kalıyor; sayfada bu etiketler görünüyor
+const FILTER_LABELS = {
+  gender: {
+    'Erkek': 'Men',
+    'Kadın': 'Women',
+    'Unisex': 'Unisex'
+  },
+  category: {
+    'Ceketler': 'Jackets',
+    'Elbiseler': 'Dresses & Skirts',
+    'T-Shirt': 'T-Shirts',
+    'Tops': 'Tops',
+    'Pantolonlar': 'Trousers',
+    'Mücevherat': 'Jewelry',
+    'Çantalar': 'Bags',
+    'Aksesuarlar': 'Accessories'
+  },
+  price: {
+    '500₺ altı': 'Under 500₺',
+    '500₺-1000₺': '500₺ - 1000₺',
+    '1000₺-1500₺': '1000₺ - 1500₺',
+    '1500₺-2000₺': '1500₺ - 2000₺',
+    '2000₺-2500₺': '2000₺ - 2500₺',
+    '2500₺+': '2500₺+'
+  },
+  color: {
+    'Kırmızı': 'Red',
+    'Mavi': 'Blue',
+    'Yeşil': 'Green',
+    'Sarı': 'Yellow',
+    'Siyah': 'Black',
+    'Beyaz': 'White',
+    'Pembe': 'Pink',
+    'Mor': 'Purple',
+    'Kahverengi': 'Brown',
+    'Gri': 'Grey'
+  }
+};
+
+const getLabel = (group, value) => FILTER_LABELS[group]?.[value] || value;
+
 function UrunlerContent() {
   const searchParams = useSearchParams();
   const [favorites, setFavorites] = useState([]);
@@ -62,14 +103,25 @@ function UrunlerContent() {
     const isLoggedIn = typeof window !== "undefined" && sessionStorage.getItem("user");
 
     if (isLoggedIn) {
+      let isAdded = false;
       setFavorites((prev) => {
         const isExist = prev.includes(productId);
+        isAdded = !isExist;
         const updated = isExist
           ? prev.filter((id) => id !== productId)
           : [...prev, productId];
 
         sessionStorage.setItem("favorites", JSON.stringify(updated));
-        setTimeout(() => window.dispatchEvent(new Event("favoritesUpdated")), 0);
+
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent("favoritesUpdated", {
+            detail: {
+              message: isAdded ? "Product added to favorites!" : "Product removed from favorites.",
+              type: isAdded ? "success" : "error"
+            }
+          }));
+        }, 0);
+
         return updated;
       });
     } else {
@@ -80,12 +132,12 @@ function UrunlerContent() {
   // Fiyat Aralığı Değerlendirme
   const checkPriceRange = (productPrice, range) => {
     switch (range) {
-      case 'Under $500': return productPrice < 500;
-      case '$500-$1000': return productPrice >= 500 && productPrice <= 1000;
-      case '$1000-$1500': return productPrice >= 1000 && productPrice <= 1500;
-      case '$1500-$2000': return productPrice >= 1500 && productPrice <= 2000;
-      case '$2000-$2500': return productPrice >= 2000 && productPrice <= 2500;
-      case '$2500+': return productPrice > 2500;
+      case '500₺ altı': return productPrice < 500;
+      case '500₺-1000₺': return productPrice >= 500 && productPrice <= 1000;
+      case '1000₺-1500₺': return productPrice >= 1000 && productPrice <= 1500;
+      case '1500₺-2000₺': return productPrice >= 1500 && productPrice <= 2000;
+      case '2000₺-2500₺': return productPrice >= 2000 && productPrice <= 2500;
+      case '2500₺+': return productPrice > 2500;
       default: return true;
     }
   };
@@ -93,33 +145,17 @@ function UrunlerContent() {
   // Filtreleme Algoritması
   const filteredProducts = useMemo(() => {
     return urunlerData.filter((urun) => {
-      // 0. Bestseller Ürünlerini Katalog Sayfasında Gizle
-      if (urun.isBestseller) {
-        return false;
-      }
+      if (urun.isBestseller) return false;
 
-      // 1. Cinsiyet Filtresi
-      if (filters.gender.length > 0 && !filters.gender.includes(urun.cinsiyet)) {
-        return false;
-      }
+      if (filters.gender.length > 0 && !filters.gender.includes(urun.cinsiyet)) return false;
+      if (filters.category.length > 0 && !filters.category.includes(urun.kategori)) return false;
+      if (filters.color.length > 0 && !filters.color.includes(urun.renk)) return false;
 
-      // 2. Kategori Filtresi
-      if (filters.category.length > 0 && !filters.category.includes(urun.kategori)) {
-        return false;
-      }
-
-      // 3. Renk Filtresi
-      if (filters.color.length > 0 && !filters.color.includes(urun.renk)) {
-        return false;
-      }
-
-      // 4. Beden Filtresi
       if (filters.size.length > 0) {
         const hasSize = urun.beden?.some((b) => filters.size.includes(b));
         if (!hasSize) return false;
       }
 
-      // 5. Fiyat Filtresi
       if (filters.price.length > 0) {
         const matchesPrice = filters.price.some((range) => checkPriceRange(urun.fiyatSayisal, range));
         if (!matchesPrice) return false;
@@ -133,7 +169,7 @@ function UrunlerContent() {
     <>
       <div className="top-banner">
         <p>
-          ✨ 2026 YAZ SEZONU BAŞLADI! SEÇİLİ ÜRÜNLERDE %30'A VARAN İNDİRİMLERİ KAÇIRMAYIN ✨
+          ✨ THE 2026 SUMMER SEASON IS HERE! DON&apos;T MISS UP TO 30% OFF SELECTED ITEMS ✨
         </p>
       </div>
       <div className="banner-container">
@@ -151,48 +187,45 @@ function UrunlerContent() {
       <main className="shop-container">
         <aside className={`sidebar ${isSidebarOpen ? 'active' : ''}`}>
           <div id="overlay" onClick={() => setIsSidebarOpen(false)} />
-          <h3>Filtered by:</h3>
+          <h3>Filter:</h3>
 
-          {/* Gender Filter */}
           <div className="filter-group">
             <h4>Gender</h4>
-            {['Men', 'Women', 'Unisex'].map((item) => (
+            {['Erkek', 'Kadın', 'Unisex'].map((item) => (
               <label key={item}>
                 <input
                   type="checkbox"
                   checked={filters.gender.includes(item)}
                   onChange={() => handleFilterChange('gender', item)}
                 />{' '}
-                {item}
+                {getLabel('gender', item)}
               </label>
             ))}
           </div>
 
-          {/* Category Filter */}
           <div className="filter-group">
             <h4>Categories</h4>
-            {['Jackets', 'Dresses', 'T-Shirt', 'Tops', 'Pants', 'Jewelry', 'Bags', 'Accessories'].map((item) => (
+            {['Ceketler', 'Elbiseler', 'T-Shirt', 'Tops', 'Pantolonlar', 'Mücevherat', 'Çantalar', 'Aksesuarlar'].map((item) => (
               <label key={item}>
                 <input
                   type="checkbox"
                   checked={filters.category.includes(item)}
                   onChange={() => handleFilterChange('category', item)}
                 />{' '}
-                {item}
+                {getLabel('category', item)}
               </label>
             ))}
           </div>
 
-          {/* Price Filter */}
           <div className="filter-group">
             <h4>Price</h4>
             {[
-              'Under $500',
-              '$500-$1000',
-              '$1000-$1500',
-              '$1500-$2000',
-              '$2000-$2500',
-              '$2500+'
+              '500₺ altı',
+              '500₺-1000₺',
+              '1000₺-1500₺',
+              '1500₺-2000₺',
+              '2000₺-2500₺',
+              '2500₺+'
             ].map((item) => (
               <label key={item}>
                 <input
@@ -200,27 +233,25 @@ function UrunlerContent() {
                   checked={filters.price.includes(item)}
                   onChange={() => handleFilterChange('price', item)}
                 />{' '}
-                {item}
+                {getLabel('price', item)}
               </label>
             ))}
           </div>
 
-          {/* Color Filter */}
           <div className="filter-group">
             <h4>Color</h4>
-            {['Red', 'Blue', 'Green', 'Yellow', 'Black', 'White', 'Pink', 'Purple', 'Brown', 'Grey'].map((item) => (
+            {['Kırmızı', 'Mavi', 'Yeşil', 'Sarı', 'Siyah', 'Beyaz', 'Pembe', 'Mor', 'Kahverengi', 'Gri'].map((item) => (
               <label key={item}>
                 <input
                   type="checkbox"
                   checked={filters.color.includes(item)}
                   onChange={() => handleFilterChange('color', item)}
                 />{' '}
-                {item}
+                {getLabel('color', item)}
               </label>
             ))}
           </div>
 
-          {/* Size Filter */}
           <div className="filter-group">
             <h4>Size</h4>
             {['Extra Small', 'Small', 'Medium', 'Large', 'Extra Large'].map((item) => (
@@ -236,7 +267,6 @@ function UrunlerContent() {
           </div>
         </aside>
 
-        {/* Product List */}
         <section className="products">
           {filteredProducts.length > 0 ? (
             filteredProducts.map((urun) => (
@@ -275,7 +305,7 @@ function UrunlerContent() {
             ))
           ) : (
             <div style={{ gridColumn: '1 / -1', padding: '40px', textAlign: 'center' }}>
-              Aradığınız filtrelere uygun ürün bulunamadı.
+              No products match the selected filters.
             </div>
           )}
         </section>
@@ -284,10 +314,9 @@ function UrunlerContent() {
   );
 }
 
-// Next.js static build hatalarını önlemek için Suspense boundary
 export default function UrunlerPage() {
   return (
-    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center' }}>Yükleniyor...</div>}>
+    <Suspense fallback={<div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>}>
       <UrunlerContent />
     </Suspense>
   );

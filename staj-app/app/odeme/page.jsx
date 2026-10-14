@@ -19,6 +19,9 @@ export default function CheckoutPage() {
   // Detay Modalı Durumu (State)
   const [selectedProduct, setSelectedProduct] = useState(null);
 
+  // Ülke Kodu State'i
+  const [countryCode, setCountryCode] = useState('+90');
+
   const [formData, setFormData] = useState({
     adSoyad: '',
     email: '',
@@ -31,7 +34,6 @@ export default function CheckoutPage() {
     cvv: ''
   });
 
-  // Hata durumlarını ve dokunulma (touched) durumunu takip eden state'ler
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
 
@@ -89,18 +91,18 @@ export default function CheckoutPage() {
     const cleanCode = couponCode.trim().toUpperCase();
 
     if (!cleanCode) {
-      setCouponError('Lütfen bir kupon kodu giriniz.');
+      setCouponError('Please enter a coupon code.');
       return;
     }
 
     if (cleanCode === 'INDIRIM10') {
       setAppliedDiscount(10);
-      setCouponSuccess('Kupon uygulandı (%10 İndirim)');
+      setCouponSuccess('Coupon applied (10% off)');
     } else if (cleanCode === 'INDIRIM20') {
       setAppliedDiscount(20);
-      setCouponSuccess('Kupon uygulandı (%20 İndirim)');
+      setCouponSuccess('Coupon applied (20% off)');
     } else {
-      setCouponError('Geçersiz veya süresi dolmuş kupon kodu.');
+      setCouponError('Invalid or expired coupon code.');
       setAppliedDiscount(0);
     }
   };
@@ -129,14 +131,82 @@ export default function CheckoutPage() {
   const kargoUcreti = indirimliAraToplam > 1000 || indirimliAraToplam === 0 ? 0 : 49.90;
   const genelToplam = indirimliAraToplam + kargoUcreti;
 
-  // E-posta formatının geçerli olup olmadığını kontrol eden fonksiyon
   const validateEmail = (email) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(String(email).toLowerCase());
   };
 
+  // Dinamik Telefon Biçimlendirme Fonksiyonu
+  const formatPhoneNumber = (inputVal, selectedCountry) => {
+    let raw = inputVal.replace(/\D/g, '');
+
+    if (selectedCountry === '+90') {
+      if (raw.startsWith('0')) {
+        raw = raw.slice(1);
+      }
+      raw = raw.slice(0, 10);
+
+      if (!raw) return '';
+
+      let formatted = raw.slice(0, 3);
+      if (raw.length > 3) formatted += ' ' + raw.slice(3, 6);
+      if (raw.length > 6) formatted += ' ' + raw.slice(6, 8);
+      if (raw.length > 8) formatted += ' ' + raw.slice(8, 10);
+
+      return formatted;
+    } else {
+      return raw.slice(0, 15);
+    }
+  };
+
+  // Telefon Hata Kontrolü Fonksiyonu
+  const validatePhone = (phoneVal, selectedCountry) => {
+    const digitsOnly = phoneVal.replace(/\D/g, '');
+    if (!digitsOnly) return 'This field is required.';
+
+    if (selectedCountry === '+90') {
+      if (digitsOnly.length !== 10) {
+        return 'Please enter your 10-digit phone number (e.g. 5XX XXX XX XX).';
+      }
+    } else {
+      if (digitsOnly.length < 8 || digitsOnly.length > 15) {
+        return 'Please enter a valid international phone number (8-15 digits).';
+      }
+    }
+    return '';
+  };
+
+  const handleCountryChange = (e) => {
+    const newCountry = e.target.value;
+    setCountryCode(newCountry);
+
+    const reformattedPhone = formatPhoneNumber(formData.telefon, newCountry);
+    setFormData((prev) => ({ ...prev, telefon: reformattedPhone }));
+
+    if (touched.telefon) {
+      const phoneErr = validatePhone(reformattedPhone, newCountry);
+      setErrors((prev) => ({ ...prev, telefon: phoneErr }));
+    }
+  };
+
   const handleInputChange = (e) => {
     let { name, value } = e.target;
+
+    if (name === 'adSoyad' || name === 'kartAd') {
+      value = value.slice(0, 100);
+    }
+
+    if (name === 'email') {
+      value = value.slice(0, 50);
+    }
+
+    if (name === 'sehir') {
+      value = value.slice(0, 30);
+    }
+
+    if (name === 'telefon') {
+      value = formatPhoneNumber(value, countryCode);
+    }
 
     if (name === 'kartNo') {
       const rawValue = value.replace(/\D/g, '');
@@ -154,18 +224,27 @@ export default function CheckoutPage() {
     }
 
     if (name === 'cvv') {
-      value = value.replace(/\D/g, '').slice(0, 4);
+      value = value.replace(/\D/g, '').slice(0, 3);
+    }
+
+    if (name === 'adres') {
+      value = value.slice(0, 500); // Harf/Karakter sınırı
     }
 
     setFormData((prev) => ({ ...prev, [name]: value }));
     setTouched((prev) => ({ ...prev, [name]: true }));
 
-    // Anlık hata tespiti
     let errorMsg = '';
     if (!value.trim()) {
-      errorMsg = 'Bu alan doldurulmalıdır.';
+      errorMsg = 'This field is required.';
     } else if (name === 'email' && !validateEmail(value)) {
-      errorMsg = 'Lütfen geçerli bir e-posta adresi giriniz (örn: test@gmail.com).';
+      errorMsg = 'Please enter a valid email address.';
+    } else if (name === 'telefon') {
+      errorMsg = validatePhone(value, countryCode);
+    } else if (name === 'kartNo' && value.replace(/\s/g, '').length !== 16) {
+      errorMsg = 'Card number must be exactly 16 digits.';
+    } else if (name === 'cvv' && value.length !== 3) {
+      errorMsg = 'CVV must be 3 digits.';
     }
 
     setErrors((prev) => ({ ...prev, [name]: errorMsg }));
@@ -175,16 +254,24 @@ export default function CheckoutPage() {
     e.preventDefault();
 
     if (cartItems.length === 0) {
-      alert('Sepetiniz boş!');
+      alert('Your bag is empty!');
       return;
     }
 
     const newErrors = {};
     Object.keys(formData).forEach((key) => {
-      if (!formData[key].trim()) {
-        newErrors[key] = 'Bu alan doldurulmalıdır.';
-      } else if (key === 'email' && !validateEmail(formData[key])) {
-        newErrors[key] = 'Lütfen geçerli bir e-posta adresi giriniz.';
+      const val = formData[key].trim();
+      if (!val) {
+        newErrors[key] = 'This field is required.';
+      } else if (key === 'email' && !validateEmail(val)) {
+        newErrors[key] = 'Please enter a valid email address.';
+      } else if (key === 'telefon') {
+        const phoneErr = validatePhone(val, countryCode);
+        if (phoneErr) newErrors.telefon = phoneErr;
+      } else if (key === 'kartNo' && val.replace(/\s/g, '').length !== 16) {
+        newErrors[key] = 'Card number must be exactly 16 digits.';
+      } else if (key === 'cvv' && val.length !== 3) {
+        newErrors[key] = 'CVV must be 3 digits.';
       }
     });
 
@@ -242,12 +329,12 @@ export default function CheckoutPage() {
       <main className="checkout-container">
         <div className="order-success-card">
           <div className="success-icon">✓</div>
-          <h2>Siparişiniz Alındı!</h2>
+          <h2>Your Order Has Been Placed!</h2>
           <p>
-            Teşekkür ederiz! Sipariş özetiniz ve kargo takip bilgileriniz <strong>{formData.email}</strong> adresine iletilmiştir.
+            Thank you! Your order summary and tracking details have been sent to <strong>{formData.email}</strong>.
           </p>
           <button className="submit-order-btn" onClick={() => router.push('/')}>
-            Alışverişe Devam Et
+            Continue Shopping
           </button>
         </div>
       </main>
@@ -256,26 +343,27 @@ export default function CheckoutPage() {
 
   return (
     <main className="checkout-container">
-      <h1 className="checkout-title">Ödeme Ve Teslimat</h1>
+      <h1 className="checkout-title">Checkout &amp; Delivery</h1>
 
       {cartItems.length === 0 ? (
         <div className="checkout-empty">
-          <h3>Sepetinizde Ürün Bulunmuyor.</h3>
-          <Link href="/urunler">Ürünleri İncelemek İçin Tıklayın</Link>
+          <h3>Your Bag Is Empty.</h3>
+          <Link href="/urunler">Click Here to Browse Products</Link>
         </div>
       ) : (
         <div className="checkout-grid">
           <form onSubmit={handleSubmit} noValidate>
             {/* TESLİMAT BİLGİLERİ */}
             <section className="checkout-section">
-              <h3>1. Teslimat Adresi</h3>
+              <h3>1. Delivery Address</h3>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Ad Soyad</label>
+                  <label>Full Name</label>
                   <input
                     type="text"
                     name="adSoyad"
+                    maxLength="250"
                     value={formData.adSoyad}
                     onChange={handleInputChange}
                     style={{ border: touched.adSoyad && errors.adSoyad ? '1px solid #dc2626' : undefined }}
@@ -287,10 +375,11 @@ export default function CheckoutPage() {
                   )}
                 </div>
                 <div className="form-group">
-                  <label>E-Posta</label>
+                  <label>Email</label>
                   <input
                     type="email"
                     name="email"
+                    maxLength="100"
                     value={formData.email}
                     onChange={handleInputChange}
                     style={{ border: touched.email && errors.email ? '1px solid #dc2626' : undefined }}
@@ -305,26 +394,53 @@ export default function CheckoutPage() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Telefon</label>
-                  <input
-                    type="tel"
-                    name="telefon"
-                    placeholder="05XX XXX XX XX"
-                    value={formData.telefon}
-                    onChange={handleInputChange}
-                    style={{ border: touched.telefon && errors.telefon ? '1px solid #dc2626' : undefined }}
-                  />
+                  <label>Phone</label>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <select
+                      value={countryCode}
+                      onChange={handleCountryChange}
+                      style={{
+                        padding: '8px 10px',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        backgroundColor: '#f9f9f9',
+                        fontSize: '13px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="+90">🇹🇷 +90</option>
+                      <option value="+1">🇺🇸 +1</option>
+                      <option value="+44">🇬🇧 +44</option>
+                      <option value="+49">🇩🇪 +49</option>
+                      <option value="+33">🇫🇷 +33</option>
+                      <option value="+39">🇮🇹 +39</option>
+                      <option value="+7">🇷🇺 +7</option>
+                    </select>
+                    <input
+                      type="tel"
+                      name="telefon"
+                      placeholder={countryCode === '+90' ? '5XX XXX XX XX' : 'Your number'}
+                      value={formData.telefon}
+                      onChange={handleInputChange}
+                      style={{
+                        flex: 1,
+                        border: touched.telefon && errors.telefon ? '1px solid #dc2626' : undefined
+                      }}
+                    />
+                  </div>
                   {touched.telefon && errors.telefon && (
                     <span style={{ color: '#dc2626', fontSize: '12px', marginTop: '4px', display: 'block' }}>
                       {errors.telefon}
                     </span>
                   )}
                 </div>
+
                 <div className="form-group">
-                  <label>Şehir</label>
+                  <label>City</label>
                   <input
                     type="text"
                     name="sehir"
+                    maxLength="50"
                     value={formData.sehir}
                     onChange={handleInputChange}
                     style={{ border: touched.sehir && errors.sehir ? '1px solid #dc2626' : undefined }}
@@ -337,16 +453,40 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
+              {/* ADRES ALANI & HARF/KARAKTER SAYAÇ */}
               <div className="form-group">
-                <label>Adres</label>
-                <textarea
-                  name="adres"
-                  rows="3"
-                  value={formData.adres}
-                  onChange={handleInputChange}
-                  placeholder="Mahalle, Cadde, Sokak, Bina ve Daire no..."
-                  style={{ border: touched.adres && errors.adres ? '1px solid #dc2626' : undefined }}
-                />
+                <label>Address</label>
+                <div style={{ position: 'relative', width: '100%' }}>
+                  <textarea
+                    name="adres"
+                    rows="4"
+                    maxLength="500"
+                    value={formData.adres}
+                    onChange={handleInputChange}
+                    placeholder="Street, building and apartment number..."
+                    style={{
+                      width: '100%',
+                      paddingBottom: '24px',
+                      border: touched.adres && errors.adres ? '1px solid #dc2626' : undefined,
+                      resize: 'vertical'
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: '8px',
+                      right: '12px',
+                      fontSize: '11px',
+                      color: '#888',
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      padding: '1px 4px',
+                      borderRadius: '3px',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    {formData.adres.length} / 500
+                  </span>
+                </div>
                 {touched.adres && errors.adres && (
                   <span style={{ color: '#dc2626', fontSize: '12px', marginTop: '4px', display: 'block' }}>
                     {errors.adres}
@@ -357,13 +497,14 @@ export default function CheckoutPage() {
 
             {/* ÖDEME BİLGİLERİ */}
             <section className="checkout-section">
-              <h3>2. Kart İle Ödeme</h3>
+              <h3>2. Card Payment</h3>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Kart Üzerindeki İsim</label>
+                <label>Name on Card</label>
                 <input
                   type="text"
                   name="kartAd"
+                  maxLength="250"
                   value={formData.kartAd}
                   onChange={handleInputChange}
                   style={{ border: touched.kartAd && errors.kartAd ? '1px solid #dc2626' : undefined }}
@@ -376,7 +517,7 @@ export default function CheckoutPage() {
               </div>
 
               <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Kart Numarası</label>
+                <label>Card Number</label>
                 <input
                   type="text"
                   name="kartNo"
@@ -395,7 +536,7 @@ export default function CheckoutPage() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Son Kullanma T. (AA/YY)</label>
+                  <label>Expiry Date (MM/YY)</label>
                   <input
                     type="text"
                     name="sonKullanma"
@@ -416,7 +557,7 @@ export default function CheckoutPage() {
                   <input
                     type="password"
                     name="cvv"
-                    maxLength="4"
+                    maxLength="3"
                     placeholder="123"
                     value={formData.cvv}
                     onChange={handleInputChange}
@@ -432,13 +573,13 @@ export default function CheckoutPage() {
             </section>
 
             <button type="submit" className="submit-order-btn">
-              Siparişi Onayla ve Öde ({genelToplam.toFixed(2)} TL)
+              Confirm and Pay ({genelToplam.toFixed(2)} TL)
             </button>
           </form>
 
           {/* SİPARİŞ ÖZETİ & KUPON ALANI */}
           <section className="order-summary-box">
-            <h3>Sipariş Özeti</h3>
+            <h3>Order Summary</h3>
 
             <div className="cart-items-list">
               {cartItems.map((item, idx) => (
@@ -446,7 +587,7 @@ export default function CheckoutPage() {
                   <div 
                     onClick={() => setSelectedProduct(item)}
                     className="summary-item-clickable"
-                    title="Ürün detayını görüntüle"
+                    title="View product details"
                     style={{ cursor: 'pointer', display: 'flex', gap: '10px', flex: 1 }}
                   >
                     <img 
@@ -457,7 +598,7 @@ export default function CheckoutPage() {
                     <div className="summary-item-details">
                       <h4 className="summary-item-title">{item.isim}</h4>
                       <span className="summary-item-meta" style={{ display: 'block', fontSize: '12px', color: '#666' }}>
-                        Beden: {item.selectedSize} | Renk: {item.selectedColor}
+                        Size: {item.selectedSize} | Color: {item.selectedColor}
                       </span>
                       <span className="summary-item-price">
                         {renderPriceView(item)}
@@ -486,7 +627,7 @@ export default function CheckoutPage() {
                     <button
                       type="button"
                       onClick={() => handleRemoveItem(idx)}
-                      title="Ürünü Sil"
+                      title="Remove Item"
                       style={{ padding: '4px 6px', borderRadius: '4px', border: 'none', background: '#fee2e2', color: '#dc2626', cursor: 'pointer', marginLeft: '4px' }}
                     >
                       🗑️
@@ -498,11 +639,11 @@ export default function CheckoutPage() {
 
             {/* KUPON KODU GİRİŞ ALANI */}
             <div className="coupon-section" style={{ borderTop: '1px solid #eee', paddingTop: '16px', marginTop: '16px' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>İndirim Kuponu</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '6px' }}>Discount Coupon</label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="text"
-                  placeholder="Kupon Kodu (Örn: INDIRIM10)"
+                  placeholder="Coupon Code (e.g. INDIRIM10)"
                   value={couponCode}
                   onChange={(e) => setCouponCode(e.target.value)}
                   style={{ flex: 1, padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', textTransform: 'uppercase' }}
@@ -512,7 +653,7 @@ export default function CheckoutPage() {
                   onClick={handleApplyCoupon}
                   style={{ padding: '8px 16px', backgroundColor: '#333', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                 >
-                  Uygula
+                  Apply
                 </button>
               </div>
               {couponError && <p style={{ color: '#dc2626', fontSize: '12px', marginTop: '4px' }}>{couponError}</p>}
@@ -522,24 +663,24 @@ export default function CheckoutPage() {
             {/* HESAPLAMA DETAYLARI */}
             <div className="pricing-breakdown" style={{ marginTop: '16px', borderTop: '1px solid #eee', paddingTop: '12px' }}>
               <div className="pricing-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span>Ara Toplam</span>
+                <span>Subtotal</span>
                 <span>{araToplam.toFixed(2)} TL</span>
               </div>
 
               {appliedDiscount > 0 && (
                 <div className="pricing-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#16a34a', fontWeight: '500' }}>
-                  <span>Kupon İndirimi (%{appliedDiscount})</span>
+                  <span>Coupon Discount ({appliedDiscount}%)</span>
                   <span>-{indirimTutari.toFixed(2)} TL</span>
                 </div>
               )}
 
               <div className="pricing-row" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span>Kargo Ücreti</span>
-                <span>{kargoUcreti === 0 ? 'Ücretsiz' : `${kargoUcreti.toFixed(2)} TL`}</span>
+                <span>Shipping</span>
+                <span>{kargoUcreti === 0 ? 'Free' : `${kargoUcreti.toFixed(2)} TL`}</span>
               </div>
 
               <div className="pricing-row total" style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '16px', borderTop: '1px solid #eee', paddingTop: '8px' }}>
-                <span>Toplam</span>
+                <span>Total</span>
                 <span>{genelToplam.toFixed(2)} TL</span>
               </div>
             </div>
@@ -573,12 +714,12 @@ export default function CheckoutPage() {
             <h2 className="modal-title">{selectedProduct.isim}</h2>
             
             <div className="modal-details">
-              <p><strong>Beden:</strong> {selectedProduct.selectedSize || 'Belirtilmedi'}</p>
-              <p><strong>Renk:</strong> {selectedProduct.selectedColor || 'Belirtilmedi'}</p>
-              <p><strong>Adet:</strong> {selectedProduct.quantity || 1}</p>
+              <p><strong>Size:</strong> {selectedProduct.selectedSize || 'Not specified'}</p>
+              <p><strong>Color:</strong> {selectedProduct.selectedColor || 'Not specified'}</p>
+              <p><strong>Quantity:</strong> {selectedProduct.quantity || 1}</p>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px' }}>
-                <strong>Birim Fiyat:</strong> 
+                <strong>Unit Price:</strong> 
                 {renderPriceView(selectedProduct)}
               </div>
             </div>

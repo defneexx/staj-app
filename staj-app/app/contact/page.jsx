@@ -18,23 +18,23 @@ const ContactPage = () => {
   let newErrors = {};
 
   if (!isimSoy.trim()) {
-    newErrors.isimSoy = "Lütfen adınızı ve soyadınızı giriniz.";
+    newErrors.isimSoy = "Please enter your full name.";
   }
 
   // E-posta boş mu ve geçerli bir formatta mı kontrolü:
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   
   if (!epost.trim()) {
-    newErrors.epost = "Lütfen e-posta adresinizi giriniz.";
+    newErrors.epost = "Please enter your email address.";
   } else if (!emailRegex.test(epost)) {
-    newErrors.epost = "Lütfen geçerli bir e-posta adresi giriniz (örn: ornek@mail.com).";
+    newErrors.epost = "Please enter a valid email address (e.g. example@mail.com).";
   }
 
   if (!konu.trim()) {
-    newErrors.konu = "Lütfen konuyu giriniz.";
+    newErrors.konu = "Please enter a subject.";
   }
   if (!mesaj.trim()) {
-    newErrors.mesaj = "Lütfen mesajınızı giriniz.";
+    newErrors.mesaj = "Please enter your message.";
   }
 
   setErrors(newErrors);
@@ -57,11 +57,11 @@ const ContactPage = () => {
     <>
       <section className="contact-section">
         <div className="contact-title">
-          <h2>Bizimle İletişime Geçin</h2>
+          <h2>Get in Touch</h2>
         </div>
         <div className="contact-container">
           <div className="contact-info">
-            <h3>İletişim Bilgileri</h3>
+            <h3>Contact Information</h3>
             <div className="info-box">
               <i className="fa-solid fa-location-dot" />
               <span>Ankara, Türkiye</span>
@@ -76,7 +76,7 @@ const ContactPage = () => {
             </div>
             <div className="info-box">
               <i className="fa-solid fa-clock" />
-              <span>Pzt - Cum | 09:00 - 18:00</span>
+              <span>Mon - Fri | 09:00 - 18:00</span>
             </div>
           </div>
 
@@ -87,7 +87,7 @@ const ContactPage = () => {
                   <input
                     type="text"
                     onChange={(e) => setisimSoy(e.target.value)}
-                    placeholder="Ad Soyad"
+                    placeholder="Full Name"
                     value={isimSoy}
                     className={errors.isimSoy ? "input-error" : ""}
                   />
@@ -100,7 +100,7 @@ const ContactPage = () => {
                   <input
                     type="email"
                     onChange={(e) => setepost(e.target.value)}
-                    placeholder="E-posta"
+                    placeholder="Email"
                     value={epost}
                     className={errors.epost ? "input-error" : ""}
                   />
@@ -113,7 +113,7 @@ const ContactPage = () => {
                   <input
                     type="text"
                     onChange={(e) => setkonu(e.target.value)}
-                    placeholder="Konu"
+                    placeholder="Subject"
                     value={konu}
                     className={errors.konu ? "input-error" : ""}
                   />
@@ -124,7 +124,7 @@ const ContactPage = () => {
 
                 <div className="field-block">
                   <textarea
-                    placeholder="Mesajınız"
+                    placeholder="Your Message"
                     value={mesaj}
                     onChange={(e) => setmesaj(e.target.value)}
                     className={errors.mesaj ? "input-error" : ""}
@@ -134,7 +134,7 @@ const ContactPage = () => {
                   )}
                 </div>
 
-                <button type="submit">Mesaj Gönder</button>
+                <button type="submit">Send Message</button>
               </form>
             ) : (
 // ... üst kısımlar aynı
@@ -144,11 +144,11 @@ const ContactPage = () => {
       <i className="fa-solid fa-circle-check" />
     </div>
 
-    <h1>Teşekkürler!</h1>
-    <p>Mesajınız başarıyla bize ulaştı. En kısa sürede dönüş yapacağız.</p>
+    <h1>Thank You!</h1>
+    <p>Your message has been received. We'll get back to you as soon as possible.</p>
 
     <button type="button" onClick={geriDon}>
-      Geri Dön
+      Go Back
     </button>
   </div>
             )}

@@ -54,7 +54,7 @@ export default function FavorilerPage() {
   if (isLoading) {
     return (
       <main className="favorites-container">
-        <div className="favorites-loading">Yükleniyor...</div>
+        <div className="favorites-loading">Loading...</div>
       </main>
     );
   }
@@ -65,13 +65,13 @@ export default function FavorilerPage() {
       <main className="favorites-container">
         <div className="empty-favorites">
           <i className="fa-regular fa-heart empty-icon"></i>
-          <h2>Favorilerinizi Görmek İçin Giriş Yapın</h2>
-          <p>Beğendiğiniz ürünleri favorilerinize eklemek ve listelemek için lütfen hesabınıza giriş yapın.</p>
+          <h2>Log In to See Your Favorites</h2>
+          <p>Please log in to your account to save and view the products you love.</p>
           <button 
             className="fav-login-btn"
             onClick={() => window.dispatchEvent(new Event("openLoginModal"))}
           >
-            Giriş Yap / Kayıt Ol
+            Log In / Sign Up
           </button>
         </div>
       </main>
@@ -81,18 +81,18 @@ export default function FavorilerPage() {
   return (
     <main className="favorites-container">
       <div className="favorites-header">
-        <h1>Favorilerim</h1>
-        <span className="fav-count">{favoriteProducts.length} Ürün</span>
+        <h1>My Favorites</h1>
+        <span className="fav-count">{favoriteProducts.length} {favoriteProducts.length === 1 ? "Item" : "Items"}</span>
       </div>
 
       {favoriteProducts.length === 0 ? (
         /* Favori Listesi Boşsa */
         <div className="empty-favorites">
           <i className="fa-regular fa-heart empty-icon"></i>
-          <h2>Favori Listeniz Henüz Boş</h2>
-          <p>Henüz favorilerinize bir ürün eklemediniz. Tarzınıza uygun ürünleri keşfetmeye başlayın!</p>
+          <h2>Your Favorites List Is Empty</h2>
+          <p>You haven't added any products to your favorites yet. Start exploring pieces that match your style!</p>
           <Link href="/urunler" className="browse-btn">
-            Ürünleri Keşfet
+            Explore Products
           </Link>
         </div>
       ) : (
@@ -109,7 +109,7 @@ export default function FavorilerPage() {
                     e.stopPropagation();
                     handleRemoveFavorite(urun.id);
                   }}
-                  title="Favorilerden Çıkar"
+                  title="Remove from Favorites"
                 >
                   <i className="fas fa-heart" style={{ color: "#8b0000" }} />
                 </button>
